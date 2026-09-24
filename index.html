@@ -8,7 +8,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html { height: 100%; background-color: #0e0e0e; font-family: Arial, sans-serif; overflow: hidden; }
-        .wrapper { display: flex; height: 100vh; width: 100vw; padding: 8px; gap: 4px; }
+        .wrapper { display: flex; height: 100vh; width: 100vw; padding: 8px; gap: 4px; position: relative; }
         
         .tg-panel { 
             width: 380px; 
@@ -21,26 +21,37 @@
             overflow: hidden;
         }
         
-        /* Шапка лівої панелі з кнопкою */
         .tg-header {
-            padding: 10px;
+            padding: 12px;
             background: #222;
             text-align: center;
             border-bottom: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
-        .tg-link-btn {
-            display: inline-block;
+        .tg-link-btn, .modal-open-btn {
+            display: block;
             background: #0088cc;
             color: #fff;
             text-decoration: none;
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: 6px;
             font-size: 13px;
             font-weight: bold;
+            border: none;
+            cursor: pointer;
             transition: background 0.2s;
+            text-align: center;
         }
-        .tg-link-btn:hover {
+        .tg-link-btn:hover, .modal-open-btn:hover {
             background: #006699;
+        }
+        .modal-open-btn {
+            background: #27ae60;
+        }
+        .modal-open-btn:hover {
+            background: #219653;
         }
 
         .tg-content {
@@ -52,14 +63,61 @@
             align-items: center;
         }
 
-        .resizer { width: 6px; background: #2a2a2a; border-radius: 3px; cursor: ew-resize; }
-        .map-panel { flex: 1; height: 100%; background: #000; border-radius: 8px; overflow: hidden; }
+        .resizer { width: 6px; background: #2a2a2a; border-radius: 3px; cursor: ew-resize; z-index: 10; }
+        .map-panel { flex: 1; height: 100%; background: #000; border-radius: 8px; overflow: hidden; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
+
+        /* Плаваюче міні-вікно поверх усіх вікон (картинка в картинці) */
+        .floating-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 80vh;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            border: 2px solid #444;
+            z-index: 9999;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .floating-modal.active {
+            display: flex;
+        }
+        .modal-header {
+            background: #2c2c2c;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            font-weight: bold;
+        }
+        .modal-close {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .modal-close:hover {
+            background: #c0392b;
+        }
+        .modal-body {
+            flex: 1;
+            background: #000;
+        }
 
         @media (max-width: 768px) {
             .wrapper { flex-direction: column; overflow: auto; }
             .resizer { display: none; }
             .tg-panel, .map-panel { width: 100% !important; height: 50vh; }
+            .floating-modal { width: 95vw; height: 90vh; }
         }
     </style>
 </head>
@@ -68,10 +126,11 @@
         <!-- ЛІВИЙ БЛОК -->
         <div class="tg-panel" id="tgPanel">
             <div class="tg-header">
-                <a href="https://t.me/povitryanatrivogaaa" target="_blank" class="tg-link-btn">📢 Відкрити весь канал у Telegram</a>
+                <a href="https://t.me/povitryanatrivogaaa" target="_blank" class="tg-link-btn">📢 Відкрити канал у Telegram</a>
+                <button class="modal-open-btn" onclick="toggleModal(true)">🗔 Міні-вікно поверх мапи</button>
             </div>
             <div class="tg-content">
-                <!-- Офіційний віджет останнього поста -->
+                <!-- Офіційний віджет останнього поста для швидкого перегляду -->
                 <script async src="https://telegram.org/js/telegram-widget.js?22" 
                         data-telegram-post="povitryanatrivogaaa/225676" 
                         data-width="100%" 
@@ -88,7 +147,20 @@
         </div>
     </div>
 
+    <!-- ПЛАВАЮЧЕ МІНІ-ВІКНО (Модальне вікно поверх усього) -->
+    <div class="floating-modal" id="floatingModal">
+        <div class="modal-header">
+            <span>Оперативний моніторинг (Telegram)</span>
+            <button class="modal-close" onclick="toggleModal(false)">✕ Закрити</button>
+        </div>
+        <div class="modal-body">
+            <!-- Сюди можна підставити веб-версію через пряме посилання або зручний iframe-перегляд -->
+            <iframe src="https://t.me/povitryanatrivogaaa" title="Telegram моніторинг"></iframe>
+        </div>
+    </div>
+
     <script>
+        // Зміна розмірів панелей мишкою
         const resizer = document.getElementById('resizer');
         const tgPanel = document.getElementById('tgPanel');
         let isResizing = false;
@@ -111,6 +183,16 @@
             isResizing = false;
             document.removeEventListener('mousemove', resize);
             document.removeEventListener('mouseup', stopResize);
+        }
+
+        // Керування плаваючим міні-вікном
+        function toggleModal(show) {
+            const modal = document.getElementById('floatingModal');
+            if (show) {
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
         }
     </script>
 </body>
